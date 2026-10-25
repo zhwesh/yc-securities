@@ -1,0 +1,32 @@
+# 换行符规范：文本文件入库统一为 LF，避免 Windows 与 Linux 之间产生整文件差异
+* text=auto
+
+# Windows 脚本保持 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Unix 脚本与 Maven 包装脚本保持 LF
+*.sh text eol=lf
+mvnw text eol=lf
+
+# 二进制文件不做换行转换
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+
+# SQL 脚本按文本处理
+*.sql text
+
+# 依赖锁文件由工具生成，禁止手工合并
+package-lock.json text

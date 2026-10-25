@@ -1,0 +1,7 @@
+demo:
+  market-maker:
+    enabled: true
+    code: 600000
+    bots: 10
+    interval-ms: 500
+    max-deviation-percent: 10.0

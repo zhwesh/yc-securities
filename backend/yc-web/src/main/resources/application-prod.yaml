@@ -1,0 +1,73 @@
+# 生产环境配置文件
+
+server:
+  port: 8080
+
+# 数据库：base application.yaml 会用它拼 JDBC URL
+datasource:
+  driver-class-name: com.mysql.cj.jdbc.Driver
+  host: ${DB_HOST}
+  port: ${DB_PORT:3306}
+  database: ${DB_NAME}
+  username: ${DB_USERNAME}
+  password: ${DB_PASSWORD}
+
+# Redis：短信验证码、交易密码在线态等
+redis:
+  host: ${REDIS_HOST}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+
+spring:
+  data:
+    redis:
+      database: ${REDIS_DATABASE:0}
+
+# 阿里云OSS（头像上传）
+alioss:
+  endpoint: ${ALIOSS_ENDPOINT}
+  bucketName: ${ALIOSS_BUCKET}
+  region: ${ALIOSS_REGION}
+  access-key-id: ${ALIOSS_ACCESS_KEY_ID}
+  access-key-secret: ${ALIOSS_ACCESS_KEY_SECRET}
+
+jwt:
+  secret-key: ${JWT_SECRET}
+
+# 银证转账、验证码等需要第三方api以及真实资质
+integration:
+  bank-channel-bean: bankChannelUtilRealImpl
+  sms-bean: smsSenderRealImpl
+  funding-bean: fundingChannelUtilRealImpl
+
+# 关闭always-on，启用真实A股交易时段和集合竞价
+trading:
+  always-on: false
+  call-auction-enabled: true
+  kline-aggregation-enabled: true
+  snapshot-enabled: true
+
+# 真实银行卡验证渠道
+bank-channel:
+  card:
+    base-url: ${BANK_CARD_API_BASE_URL}
+    app-id: ${BANK_CARD_APP_ID}
+    secret-key: ${BANK_CARD_SECRET_KEY}
+  funding:
+    base-url: ${BANK_FUNDING_BASE_URL}
+    merchant-id: ${BANK_FUNDING_MERCHANT_ID}
+    secret-key: ${BANK_FUNDING_SECRET_KEY}
+
+# 真实短信渠道
+sms:
+  base-url: ${SMS_API_BASE_URL}
+  access-key: ${SMS_API_ACCESS_KEY}
+  secret-key: ${SMS_API_SECRET_KEY}
+  sign-name: ${SMS_SIGN_NAME}
+
+# 关闭Swagger/OpenAPI页面
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.zhwesh.mapper.PeriodQuoteMapper">
+
+    <!-- 按周期聚合源表并幂等写入周/月/季/年K表 -->
+    <insert id="upsertPeriodQuote">
+        INSERT INTO ${targetTable} (stock_code, period_key, date, open, high, low, close, pre_close,
+                                    volume, amount)
+        SELECT m.stock_code,
+               #{periodKey},
+               m.last_date,
+               o.open,
+               m.high,
+               m.low,
+               c.close,
+               o.pre_close,
+               m.volume,
+               m.amount
+        FROM (
+            SELECT stock_code,
+                   MIN(date) AS first_date,
+                   MAX(date) AS last_date,
+                   MAX(high) AS high,
+                   MIN(low) AS low,
+                   SUM(volume) AS volume,
+                   SUM(amount) AS amount
+            FROM ${sourceTable}
+            WHERE date &gt;= #{startDate}
+              AND date &lt;= #{endDate}
+            GROUP BY stock_code
+        ) m
+        JOIN ${sourceTable} o ON o.stock_code = m.stock_code AND o.date = m.first_date
+        JOIN ${sourceTable} c ON c.stock_code = m.stock_code AND c.date = m.last_date
+        ON DUPLICATE KEY UPDATE
+            date = VALUES(date),
+            open = VALUES(open),
+            high = VALUES(high),
+            low = VALUES(low),
+            close = VALUES(close),
+            pre_close = VALUES(pre_close),
+            volume = VALUES(volume),
+            amount = VALUES(amount)
+    </insert>
+
+    <!-- 统计指定周期是否已聚合 -->
+    <select id="countByPeriodKey" resultType="int">
+        SELECT COUNT(*) FROM ${table} WHERE period_key = #{periodKey}
+    </select>
+
+    <!-- 查询历史周期K线（按日期倒序） -->
+    <select id="getPeriodQuotes" resultType="com.zhwesh.entity.PeriodQuote">
+        SELECT id, stock_code AS code, period_key, date, open, high, low, close, pre_close,
+               volume, amount
+        FROM ${table}
+        WHERE stock_code = #{code}
+        <if test="beforeDate != null">
+            AND date &lt; #{beforeDate}
+        </if>
+        ORDER BY date DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

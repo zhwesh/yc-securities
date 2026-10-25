@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhwesh.mapper.QuoteMapper">
+
+    <!-- 批量写入/更新分钟行情 -->
+    <insert id="batchUpsertMinutes">
+        INSERT INTO minute_quote (stock_code, trade_time, price, volume, amount, avg_price)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.code}, #{item.tradeTime}, #{item.price}, #{item.volume}, #{item.amount},
+             #{item.avgPrice})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            price = VALUES(price),
+            volume = VALUES(volume),
+            amount = VALUES(amount),
+            avg_price = VALUES(avg_price)
+    </insert>
+
+    <!-- 批量写入/更新日行情 -->
+    <insert id="batchUpsertDailies">
+        INSERT INTO daily_quote (stock_code, date, open, high, low, close, pre_close, volume, amount)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.code}, #{item.date}, #{item.open}, #{item.high}, #{item.low}, #{item.close},
+             #{item.preClose}, #{item.volume}, #{item.amount})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            open = VALUES(open),
+            high = VALUES(high),
+            low = VALUES(low),
+            close = VALUES(close),
+            pre_close = VALUES(pre_close),
+            volume = VALUES(volume),
+            amount = VALUES(amount)
+    </insert>
+
+    <!-- 查询某日全部分钟行情 -->
+    <select id="getMinutesByDate" resultType="MinuteQuote">
+        SELECT id, stock_code AS code, trade_time, price, volume, amount, avg_price
+        FROM minute_quote
+        WHERE trade_time &gt;= #{date}
+          AND trade_time &lt; DATE_ADD(#{date}, INTERVAL 1 DAY)
+        ORDER BY stock_code, trade_time
+    </select>
+
+    <!-- 查询某只股票某日的分钟行情 -->
+    <select id="getMinutesByCodeAndDate" resultType="MinuteQuote">
+        SELECT id, stock_code AS code, trade_time, price, volume, amount, avg_price
+        FROM minute_quote
+        WHERE stock_code = #{code}
+          AND trade_time &gt;= #{date}
+          AND trade_time &lt; DATE_ADD(#{date}, INTERVAL 1 DAY)
+        ORDER BY trade_time
+    </select>
+
+    <!-- 查询某日全部日行情 -->
+    <select id="getDailiesByDate" resultType="DailyQuote">
+        SELECT id, stock_code AS code, date, open, high, low, close, pre_close, volume, amount
+        FROM daily_quote
+        WHERE date = #{date}
+    </select>
+
+    <!-- 查询每只股票最近一条日行情 -->
+    <select id="getLatestDailies" resultType="DailyQuote">
+        SELECT d.id, d.stock_code AS code, d.date, d.open, d.high, d.low, d.close, d.pre_close,
+               d.volume, d.amount
+        FROM daily_quote d
+        INNER JOIN (
+            SELECT stock_code, MAX(date) AS max_date
+            FROM daily_quote
+            GROUP BY stock_code
+        ) t ON d.stock_code = t.stock_code AND d.date = t.max_date
+    </select>
+
+    <!-- 查询某只股票早于指定日期的最近 N 条日线（K线游标分页，按日期倒序） -->
+    <select id="getDailiesBefore" resultType="DailyQuote">
+        SELECT id, stock_code AS code, date, open, high, low, close, pre_close, volume, amount
+        FROM daily_quote
+        WHERE stock_code = #{code}
+        <if test="endDate != null">
+            AND date &lt; #{endDate}
+        </if>
+        ORDER BY date DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查询某只股票全部日线（周/月K聚合用，按日期升序） -->
+    <select id="getDailiesByCode" resultType="DailyQuote">
+        SELECT id, stock_code AS code, date, open, high, low, close, pre_close, volume, amount
+        FROM daily_quote
+        WHERE stock_code = #{code}
+        ORDER BY date ASC
+    </select>
+
+    <!-- 查询某只股票某日之前的最近 N 条日线（量比计算用，按日期倒序） -->
+    <select id="getRecentDailies" resultType="DailyQuote">
+        SELECT id, stock_code AS code, date, open, high, low, close, pre_close, volume, amount
+        FROM daily_quote
+        WHERE stock_code = #{code}
+          AND date &lt; #{beforeDate}
+        ORDER BY date DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查询最近 N 个交易日的全市场成交量（计算日均成交量用） -->
+    <select id="getRecentDailyVolumes" resultType="DailyQuote">
+        SELECT stock_code AS code, date, volume
+        FROM daily_quote
+        WHERE date IN (
+            SELECT date FROM (
+                SELECT DISTINCT date FROM daily_quote
+                WHERE date &lt; #{beforeDate}
+                ORDER BY date DESC
+                LIMIT #{days}
+            ) t
+        )
+    </select>
+
+    <!-- 查询某只股票某日的一条日行情（分时接口取昨收用） -->
+    <select id="getDailyByCodeAndDate" resultType="DailyQuote">
+        SELECT id, stock_code AS code, date, open, high, low, close, pre_close, volume, amount
+        FROM daily_quote
+        WHERE stock_code = #{code}
+          AND date = #{date}
+    </select>
+
+    <!-- 查询某只股票截止时间之前最近 N 条分钟线（分钟K线聚合用） -->
+    <select id="getMinutesBefore" resultType="MinuteQuote">
+        SELECT id, stock_code AS code, trade_time, price, volume, amount, avg_price
+        FROM minute_quote
+        WHERE stock_code = #{code}
+        <if test="endTime != null">
+            AND trade_time &lt; #{endTime}
+        </if>
+        ORDER BY trade_time DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

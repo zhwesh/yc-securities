@@ -1,0 +1,277 @@
+/* 主题变量，白色同花顺风格，红涨绿跌；暗色变量预留不启用 */
+
+:root {
+    /* 涨跌色，红涨绿跌 */
+    --up: #e5484d;
+    --up-weak: #fdeaea;
+    --down: #00a870;
+    --down-weak: #e6f7f1;
+    --flat: #6b7280;
+    --primary: #e5484d;
+    --primary-hover: #d13a3f;
+    --primary-weak: #fdeaea;
+
+    /* 背景 */
+    --bg-body: #f4f5f7;
+    --bg-panel: #ffffff;
+    --bg-sider: #ffffff;
+    --bg-header: #ffffff;
+    --bg-hover: #f2f4f7;
+    --bg-active: #fdeaea;
+    --bg-subtle: #fafbfc;
+    --bg-mask: rgba(15, 23, 42, 0.45);
+    --bg-quote-head: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+
+    /* 文本 */
+    --text-primary: #1f2329;
+    --text-regular: #4e5969;
+    --text-secondary: #86909c;
+    --text-placeholder: #a8adb7;
+    --text-inverse: #ffffff;
+
+    /* 描边 */
+    --border: #ebedf0;
+    --border-strong: #dcdfe6;
+    --divider: #f0f1f3;
+
+    /* 阴影 */
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+    /* 尺寸 */
+    --header-h: 64px;
+    --sider-w: 176px;
+    --radius-sm: 4px;
+    --radius: 6px;
+    --radius-lg: 10px;
+
+    /* 字体 */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+        'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+    --font-num: 'DIN Alternate', 'Bahnschrift', 'SF Mono', 'Roboto Mono', Consolas,
+        'Liberation Mono', monospace;
+
+    color-scheme: light;
+}
+
+/* 暗色主题变量，作用于html.dark */
+html.dark {
+    --up: #ff5c61;
+    --up-weak: #3a1e20;
+    --down: #2bc48a;
+    --down-weak: #14322a;
+    --flat: #9aa4b2;
+    --primary: #ff5c61;
+    --primary-hover: #ff7679;
+    --primary-weak: #3a1e20;
+
+    --bg-body: #121417;
+    --bg-panel: #1a1d21;
+    --bg-sider: #1a1d21;
+    --bg-header: #1a1d21;
+    --bg-hover: #23272c;
+    --bg-active: #3a1e20;
+    --bg-subtle: #1e2226;
+    --bg-mask: rgba(0, 0, 0, 0.6);
+    --bg-quote-head: linear-gradient(180deg, #1a1d21 0%, #16191d 100%);
+
+    --text-primary: #e8eaed;
+    --text-regular: #c2c7ce;
+    --text-secondary: #8d95a0;
+    --text-placeholder: #6b7280;
+
+    --border: #2a2e34;
+    --border-strong: #3a3f46;
+    --divider: #23272c;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+    color-scheme: dark;
+}
+
+/* ========================== 基础重置 ========================== */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--bg-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+    margin: 0;
+}
+
+ul,
+ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* 滚动条：细、浅，桌面端更像行情软件 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d7dbe0;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #c2c7ce;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+    background: #3a3f46;
+}
+
+/* ========================== 通用工具类 ========================== */
+
+/* 数字等宽显示 */
+.num {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+    letter-spacing: -0.01em;
+}
+
+.up {
+    color: var(--up);
+}
+
+.down {
+    color: var(--down);
+}
+
+.flat {
+    color: var(--flat);
+}
+
+.bg-up {
+    background: var(--up);
+}
+
+.bg-down {
+    background: var(--down);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+.text-regular {
+    color: var(--text-regular);
+}
+
+.ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 卡片 */
+.panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 44px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.panel-title .extra {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* 空态 */
+.empty-tip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    padding: 24px;
+    font-size: 15px;
+    color: var(--text-secondary);
+}
+
+/* 涨跌标签 */
+.chg-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 3px;
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    color: #fff;
+}
+
+.chg-tag.is-up {
+    background: var(--up);
+}
+
+.chg-tag.is-down {
+    background: var(--down);
+}
+
+.chg-tag.is-flat {
+    background: var(--flat);
+}
+
+/* 切换动画 */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.16s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}

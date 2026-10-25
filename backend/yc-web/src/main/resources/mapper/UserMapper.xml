@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.zhwesh.mapper.UserMapper">
+    <!-- 修改用户信息 -->
+    <update id="updateUser" parameterType="com.zhwesh.entity.User">
+        UPDATE user
+        <set>
+            <if test="username != null">username = #{username},</if>
+            <if test="image != null">image = #{image},</if>
+            <if test="phone != null">phone = #{phone},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+</mapper>

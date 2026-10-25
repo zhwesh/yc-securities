@@ -1,0 +1,66 @@
+# 公共配置：环境相关配置一律放在 application-{profile}.yaml
+# 切换环境只需要改下面的 spring.profiles.active
+server:
+  port: 8080
+
+spring:
+  application:
+    name: yc-securities
+  profiles:
+    active: dev               # 开发环境或生产环境
+  main:
+    allow-circular-references: true
+  task:
+    scheduling:
+      pool:
+        size: 4
+  servlet:
+    multipart:
+      max-file-size: 2MB      # 上传单文件大小上限
+      max-request-size: 10MB  # 单次请求大小上限
+  datasource:
+    driver-class-name: ${datasource.driver-class-name}
+    url: jdbc:mysql://${datasource.host}:${datasource.port}/${datasource.database}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${datasource.username}
+    password: ${datasource.password}
+  data:
+    redis:
+      host: ${redis.host}
+      port: ${redis.port}
+      password: ${redis.password}
+
+jwt:
+  ttl: 86400000   # 令牌有效期（毫秒），24小时
+
+trading:
+  fee:
+    commission-rate: 0.00025   # 佣金费率（双向）
+    stamp-duty-rate: 0.0005    # 印花税（卖出）
+    transfer-fee-rate: 0.00001 # 过户费（双向）
+  kline-cache:
+    max-stocks: 200                         # 缓存股票数上限（LRU）
+    expire-after-access-seconds: 3600       # 闲置过期时间（秒）
+
+mybatis:
+  #mapper配置文件
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.zhwesh.entity
+  configuration:
+    #开启驼峰命名
+    map-underscore-to-camel-case: true
+
+bank-channel:
+  card:
+    base-url: ${BANK_CARD_API_BASE_URL:}        # 银行卡验证网关地址（环境变量注入）
+    app-id: ${BANK_CARD_APP_ID:}                # 银行卡验证渠道应用号（环境变量注入）
+    secret-key: ${BANK_CARD_SECRET_KEY:}        # 银行卡验证签名密钥（环境变量注入，禁止写入仓库）
+  funding:
+    base-url: ${BANK_FUNDING_BASE_URL:}         # 银证转账存管网关地址（环境变量注入）
+    merchant-id: ${BANK_FUNDING_MERCHANT_ID:}   # 存管商户号（环境变量注入）
+    secret-key: ${BANK_FUNDING_SECRET_KEY:}     # 网关签名密钥（环境变量注入，禁止写入仓库）
+
+sms:
+  base-url: ${SMS_API_BASE_URL:}                # 短信平台网关地址（环境变量注入）
+  access-key: ${SMS_API_ACCESS_KEY:}            # 短信平台 AccessKey（环境变量注入）
+  secret-key: ${SMS_API_SECRET_KEY:}            # 短信平台签名密钥（环境变量注入，禁止写入仓库）
+  sign-name: ${SMS_SIGN_NAME:}                  # 短信签名（环境变量注入）
