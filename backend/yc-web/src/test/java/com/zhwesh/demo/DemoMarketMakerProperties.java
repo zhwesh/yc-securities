@@ -29,7 +29,7 @@ public class DemoMarketMakerProperties {
     /**
      * 机器人数量
      */
-    private int bots = 10;
+    private int bots = 50;
 
     /**
      * 调度间隔，单位毫秒

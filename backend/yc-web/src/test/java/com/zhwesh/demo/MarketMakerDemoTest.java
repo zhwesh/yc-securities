@@ -19,7 +19,7 @@ class MarketMakerDemoTest {
     @Value("${demo.market-maker.code:600000}")
     private String code;
 
-    @Value("${demo.market-maker.bots:10}")
+    @Value("${demo.market-maker.bots:50}")
     private int bots;
 
     /**
