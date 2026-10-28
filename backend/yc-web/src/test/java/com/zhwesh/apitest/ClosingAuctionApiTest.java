@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 /**
- * 收盘集合竞价测试（固定 14:58，不可撤单阶段）
+ * 收盘集合竞价测试
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
@@ -71,6 +71,22 @@ class ClosingAuctionApiTest extends ApiTestBase {
             .path("data").path("status").asInt()).isEqualTo(3);
         assertThat(api.orderDetail(sell.path("data").path("id").asLong())
             .path("data").path("status").asInt()).isEqualTo(3);
+
+        long buyId = buy.path("data").path("id").asLong();
+        long sellId = sell.path("data").path("id").asLong();
+        var tradeRows = jdbcTemplate.queryForList(
+            "SELECT quantity, taker_side FROM sold_orders WHERE order_id IN (?, ?) ORDER BY quantity DESC",
+            buyId, sellId);
+        assertThat(tradeRows).hasSize(2);
+        assertThat(((Number) tradeRows.get(0).get("quantity")).intValue()).isEqualTo(100);
+        assertThat(((Number) tradeRows.get(1).get("quantity")).intValue()).isEqualTo(-100);
+        assertThat(((Number) tradeRows.get(0).get("taker_side")).intValue()).isZero();
+
+        JsonNode marketTrade = api.marketTrades("000001", 50).path("data").get(0);
+        assertThat(marketTrade.path("price").asDouble())
+            .isCloseTo(auction.path("data").path("indicativePrice").asDouble(), within(0.0001));
+        assertThat(marketTrade.path("volume").asLong()).isEqualTo(100);
+        assertThat(marketTrade.path("direction").asInt()).isZero();
     }
 
     private Map<String, Object> orderBody(BigDecimal price, int quantity, String orderKey) {

@@ -19,6 +19,7 @@ class PositionApiTest extends ApiTestBase {
         assertThat(response.path("data")).hasSize(1);
 
         var position = response.path("data").get(0);
+        assertThat(position.path("accountId").asLong()).isEqualTo(1);
         assertThat(position.path("code").asString()).isEqualTo("000001");
         assertThat(position.path("stockName").asString()).isEqualTo("平安银行");
         assertThat(position.path("quantity").asLong()).isEqualTo(10000);
@@ -27,5 +28,6 @@ class PositionApiTest extends ApiTestBase {
         assertThat(position.path("currentPrice").asDouble()).isCloseTo(11.57, within(0.001));
         assertThat(position.path("marketValue").asDouble()).isCloseTo(115700.0, within(0.01));
         assertThat(position.path("profitLoss").asDouble()).isCloseTo(0.0, within(0.01));
+        assertThat(position.path("profitLossRatio").asDouble()).isCloseTo(0.0, within(0.000001));
     }
 }

@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 /**
- * 集合竞价接口测试（固定 09:16，开盘集合竞价可撤单阶段）
+ * 集合竞价接口测试
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
@@ -82,7 +82,21 @@ class AuctionApiTest extends ApiTestBase {
             "SELECT COUNT(*) FROM sold_orders WHERE order_id IN (?, ?)",
             Integer.class, buyId, sellId);
         assertThat(auctionTrades).isEqualTo(2);
-        assertThat(api.marketTrades("000001", 50).path("data").size()).isPositive();
+        var tradeRows = jdbcTemplate.queryForList(
+            "SELECT quantity, taker_side FROM sold_orders WHERE order_id IN (?, ?) ORDER BY quantity DESC",
+            buyId, sellId);
+        assertThat(tradeRows).hasSize(2);
+        assertThat(((Number) tradeRows.get(0).get("quantity")).intValue()).isEqualTo(100);
+        assertThat(((Number) tradeRows.get(1).get("quantity")).intValue()).isEqualTo(-100);
+        assertThat(((Number) tradeRows.get(0).get("taker_side")).intValue()).isZero();
+        assertThat(((Number) tradeRows.get(1).get("taker_side")).intValue()).isZero();
+
+        JsonNode marketTrade = api.marketTrades("000001", 50).path("data").get(0);
+        assertThat(marketTrade.path("price").asDouble())
+            .isCloseTo(data.path("indicativePrice").asDouble(), within(0.0001));
+        assertThat(marketTrade.path("volume").asLong()).isEqualTo(100);
+        assertThat(marketTrade.path("direction").asInt()).isZero();
+
         matchEngine.clearTrades();
         JsonNode persistedTrades = api.marketTrades("000001", 50);
         assertThat(persistedTrades.path("data").size()).isPositive();
@@ -101,6 +115,18 @@ class AuctionApiTest extends ApiTestBase {
         assertThat(cancel.path("code").asInt()).isEqualTo(1);
         assertThat(api.orderDetail(order.path("data").path("id").asLong())
             .path("data").path("status").asInt()).isEqualTo(4);
+    }
+
+    @Test
+    void marketOrderRejectedInAuction() {
+        JsonNode response = api.createOrder(ApiClient.body(
+            "accountId", 1L, "code", "000001", "type", 2,
+            "quantity", 100, "orderKey", "910006"));
+
+        assertThat(response.path("code").asInt()).isZero();
+        assertThat(response.path("msg").asString()).contains("仅支持限价");
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM orders WHERE order_key = '910006'", Integer.class)).isZero();
     }
 
     @Test

@@ -72,20 +72,32 @@ class WebSocketTest extends ApiTestBase {
                 "accountId", 1, "code", "000001", "type", 1,
                 "price", new BigDecimal("11.50"), "quantity", -100, "orderKey", "200001"));
             assertThat(sell.path("code").asInt()).isEqualTo(1);
+            long sellOrderId = sell.path("data").path("id").asLong();
             JsonNode orderUpdate = waitForType(messages, "orderUpdate", 5000);
+            assertThat(orderUpdate.path("data").path("id").asLong()).isEqualTo(sellOrderId);
+            assertThat(orderUpdate.path("data").path("accountId").asLong()).isEqualTo(1);
             assertThat(orderUpdate.path("data").path("stockCode").asString()).isEqualTo("000001");
+            assertThat(orderUpdate.path("data").path("quantity").asInt()).isEqualTo(-100);
+            assertThat(orderUpdate.path("data").path("soldQuantity").asInt()).isZero();
+            assertThat(orderUpdate.path("data").path("status").asInt()).isEqualTo(1);
 
             JsonNode buy = api.createOrder(ApiClient.body(
                 "accountId", 1, "code", "000001", "type", 1,
                 "price", new BigDecimal("11.50"), "quantity", 100, "orderKey", "200002"));
             assertThat(buy.path("code").asInt()).isEqualTo(1);
             assertThat(buy.path("data").path("status").asInt()).isEqualTo(3);
+            assertThat(buy.path("data").path("soldQuantity").asInt()).isEqualTo(100);
 
             JsonNode trade = waitForType(messages, "trade", 5000);
             assertThat(trade.path("code").asString()).isEqualTo("000001");
             assertThat(trade.path("data").path("price").asDouble()).isCloseTo(11.50, within(0.001));
             assertThat(trade.path("data").path("volume").asLong()).isEqualTo(100);
             assertThat(trade.path("data").path("direction").asInt()).isZero();
+
+            JsonNode marketTrade = api.marketTrades("000001", 50).path("data").get(0);
+            assertThat(marketTrade.path("price").asDouble()).isCloseTo(11.50, within(0.001));
+            assertThat(marketTrade.path("volume").asLong()).isEqualTo(100);
+            assertThat(marketTrade.path("direction").asInt()).isZero();
         } finally {
             session.close();
         }

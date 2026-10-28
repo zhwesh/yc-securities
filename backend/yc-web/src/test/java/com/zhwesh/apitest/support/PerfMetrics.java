@@ -1,5 +1,6 @@
 package com.zhwesh.apitest.support;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -143,7 +144,12 @@ public class PerfMetrics {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            Files.writeString(path, csv.toString(), StandardCharsets.UTF_8);
+            try {
+                Files.writeString(path, csv.toString(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                Path fallback = path.resolveSibling("perf-report-" + System.currentTimeMillis() + ".csv");
+                Files.writeString(fallback, csv.toString(), StandardCharsets.UTF_8);
+            }
         } catch (Exception e) {
             throw new IllegalStateException("写入性能报告失败", e);
         }

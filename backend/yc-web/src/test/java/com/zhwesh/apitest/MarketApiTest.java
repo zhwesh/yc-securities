@@ -21,6 +21,10 @@ class MarketApiTest extends ApiTestBase {
         assertThat(response.path("code").asInt()).isEqualTo(1);
         JsonNode data = response.path("data");
         assertThat(data.path("code").asString()).isEqualTo("600000");
+        assertThat(data.path("name").asString()).isEqualTo("浦发银行");
+        assertThat(data.path("change").asDouble()).isZero();
+        assertThat(data.path("changePercent").asDouble()).isZero();
+        assertThat(data.path("amount").asDouble()).isZero();
         assertThat(data.path("price").asDouble()).isCloseTo(9.59, within(0.0001));
         assertThat(data.path("preClose").asDouble()).isCloseTo(9.59, within(0.0001));
         assertThat(data.path("volume").asDouble()).isZero();
@@ -31,7 +35,18 @@ class MarketApiTest extends ApiTestBase {
     void quotes() {
         JsonNode response = api.quotes("600000,000001,300750");
         assertThat(response.path("code").asInt()).isEqualTo(1);
-        assertThat(response.path("data")).hasSize(3);
+        var data = response.path("data");
+        assertThat(data).hasSize(3);
+        assertThat(data.get(0).path("code").asString()).isEqualTo("600000");
+        assertThat(data.get(0).path("name").asString()).isEqualTo("浦发银行");
+        assertThat(data.get(1).path("code").asString()).isEqualTo("000001");
+        assertThat(data.get(2).path("code").asString()).isEqualTo("300750");
+        assertThat(data).allSatisfy(quote -> {
+            assertThat(quote.path("price").asDouble()).isPositive();
+            assertThat(quote.path("preClose").asDouble()).isPositive();
+            assertThat(quote.path("volume").asDouble()).isGreaterThanOrEqualTo(0);
+            assertThat(quote.path("amount").asDouble()).isGreaterThanOrEqualTo(0);
+        });
     }
 
     @Test
@@ -47,7 +62,18 @@ class MarketApiTest extends ApiTestBase {
         JsonNode response = api.rank(2, 2, 1, 3);
         assertThat(response.path("code").asInt()).isEqualTo(1);
         assertThat(response.path("data").path("total").asLong()).isEqualTo(5624);
-        assertThat(response.path("data").path("records")).hasSize(3);
+        var records = response.path("data").path("records");
+        assertThat(records).hasSize(3);
+        assertThat(records).allSatisfy(record -> {
+            assertThat(record.path("code").asString()).isNotBlank();
+            assertThat(record.path("name").asString()).isNotBlank();
+            assertThat(record.path("price").asDouble()).isPositive();
+            assertThat(record.path("changePercent").asDouble()).isNotNull();
+        });
+        for (int i = 1; i < records.size(); i++) {
+            assertThat(records.get(i - 1).path("changePercent").asDouble())
+                .isGreaterThanOrEqualTo(records.get(i).path("changePercent").asDouble());
+        }
     }
 
     @Test
@@ -69,8 +95,16 @@ class MarketApiTest extends ApiTestBase {
     void indexes() {
         JsonNode response = api.indexes();
         assertThat(response.path("code").asInt()).isEqualTo(1);
-        assertThat(response.path("data")).hasSize(5);
-        assertThat(response.path("data").get(0).path("code").asString()).isEqualTo("SH000001");
+        var data = response.path("data");
+        assertThat(data).hasSize(5);
+        assertThat(data.get(0).path("code").asString()).isEqualTo("SH000001");
+        assertThat(data).allSatisfy(index -> {
+            assertThat(index.path("code").asString()).isNotBlank();
+            assertThat(index.path("name").asString()).isNotBlank();
+            assertThat(index.path("price").asDouble()).isPositive();
+            assertThat(index.path("volume").asDouble()).isZero();
+            assertThat(index.path("amount").asDouble()).isZero();
+        });
     }
 
     @Test
@@ -78,6 +112,9 @@ class MarketApiTest extends ApiTestBase {
         JsonNode raw = api.kline("600000", 1, 0, null, 1000);
         JsonNode qfq = api.kline("600000", 1, 1, null, 1000);
         JsonNode hfq = api.kline("600000", 1, 2, null, 1000);
+        assertKLineInvariants(raw);
+        assertKLineInvariants(qfq);
+        assertKLineInvariants(hfq);
 
         double rawBefore = findBar(raw, "2024-05-31").path("close").asDouble();
         double qfqBefore = findBar(qfq, "2024-05-31").path("close").asDouble();
@@ -100,6 +137,7 @@ class MarketApiTest extends ApiTestBase {
             JsonNode bars = first.path("data").path("kLine");
             assertThat(bars.size()).isEqualTo(3);
             assertThat(first.path("data").path("hasMore").asBoolean()).isTrue();
+            assertKLineInvariants(first);
 
             String cursor = bars.get(0).path("time").asString();
             JsonNode older = api.kline("600000", period, 0, cursor, 3);
@@ -119,6 +157,7 @@ class MarketApiTest extends ApiTestBase {
             JsonNode data = response.path("data");
             assertThat(data.path("period").asInt()).isEqualTo(period);
             assertThat(data.path("kLine").size()).isGreaterThan(0);
+            assertKLineInvariants(response);
             JsonNode last = data.path("kLine").get(data.path("kLine").size() - 1);
             assertThat(last.path("time").asString()).matches("\\d{4}-\\d{2}-\\d{2}");
             assertThat(last.path("close").isNull()).isFalse();
@@ -140,6 +179,7 @@ class MarketApiTest extends ApiTestBase {
         assertThat(bar.path("low").asDouble()).isCloseTo(9.90, within(0.0001));
         assertThat(bar.path("close").asDouble()).isCloseTo(10.05, within(0.0001));
         assertThat(bar.path("volume").asDouble()).isCloseTo(150.00, within(0.0001));
+        assertThat(bar.path("turnover").asDouble()).isCloseTo(150950.00, within(0.01));
 
         JsonNode oneMinute = api.minuteKLine("600000", 1, null, 3);
         assertThat(oneMinute.path("code").asInt()).isEqualTo(1);
@@ -182,5 +222,33 @@ class MarketApiTest extends ApiTestBase {
             }
         }
         throw new AssertionError("K线数据缺少日期：" + date);
+    }
+
+    /**
+     * 校验K线OHLC与成交量关系
+     * @param response K线响应
+     */
+    private void assertKLineInvariants(JsonNode response) {
+        var bars = response.path("data").path("kLine");
+        assertThat(bars).isNotEmpty();
+        String previousTime = "";
+        for (JsonNode bar : bars) {
+            String time = bar.path("time").asString();
+            assertThat(time).isNotBlank();
+            assertThat(time).isGreaterThan(previousTime);
+            previousTime = time;
+            double open = bar.path("open").asDouble();
+            double high = bar.path("high").asDouble();
+            double low = bar.path("low").asDouble();
+            double close = bar.path("close").asDouble();
+            assertThat(high).isGreaterThanOrEqualTo(open);
+            assertThat(high).isGreaterThanOrEqualTo(close);
+            assertThat(low).isLessThanOrEqualTo(open);
+            assertThat(low).isLessThanOrEqualTo(close);
+            assertThat(bar.path("volume").asDouble()).isGreaterThanOrEqualTo(0);
+            if (!bar.path("turnover").isMissingNode() && !bar.path("turnover").isNull()) {
+                assertThat(bar.path("turnover").asDouble()).isGreaterThanOrEqualTo(0);
+            }
+        }
     }
 }

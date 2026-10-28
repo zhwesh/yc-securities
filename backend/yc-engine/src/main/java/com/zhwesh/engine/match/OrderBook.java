@@ -5,13 +5,12 @@ import com.zhwesh.engine.model.EngineOrder;
 import com.zhwesh.engine.model.EngineOrderType;
 import com.zhwesh.engine.model.EngineTrade;
 import com.zhwesh.engine.model.OrderSide;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,19 +22,19 @@ import java.util.TreeMap;
  * 非线程安全：由撮合入口（MatchEngine）加锁串行访问。
  */
 public class OrderBook {
-
+    @Getter
     private final String code;
 
     /**
      * 买盘：价格降序（最高买价优先）
      */
-    private final TreeMap<BigDecimal, Deque<EngineOrder>> bids =
+    private final TreeMap<BigDecimal, OrderQueue> bids =
         new TreeMap<>(Comparator.reverseOrder());
 
     /**
      * 卖盘：价格升序（最低卖价优先）
      */
-    private final TreeMap<BigDecimal, Deque<EngineOrder>> asks =
+    private final TreeMap<BigDecimal, OrderQueue> asks =
         new TreeMap<>();
 
     /**
@@ -45,10 +44,6 @@ public class OrderBook {
 
     public OrderBook(String code) {
         this.code = code;
-    }
-
-    public String getCode() {
-        return code;
     }
 
     /**
@@ -81,9 +76,9 @@ public class OrderBook {
      * @param isBuyTaker 主动方是否为买入
      */
     private void match(EngineOrder taker, List<EngineTrade> trades,
-                       TreeMap<BigDecimal, Deque<EngineOrder>> opposite, boolean isBuyTaker) {
+                       TreeMap<BigDecimal, OrderQueue> opposite, boolean isBuyTaker) {
         while (taker.getRemainingQuantity() > 0 && !opposite.isEmpty()) {
-            Map.Entry<BigDecimal, Deque<EngineOrder>> bestLevel = opposite.firstEntry();
+            Map.Entry<BigDecimal, OrderQueue> bestLevel = opposite.firstEntry();
             BigDecimal makerPrice = bestLevel.getKey();
 
             // 限价单价格不满足则停止；市价单一直成交直到数量达标或盘口空
@@ -96,9 +91,9 @@ public class OrderBook {
                 }
             }
 
-            Deque<EngineOrder> queue = bestLevel.getValue();
+            OrderQueue queue = bestLevel.getValue();
             while (taker.getRemainingQuantity() > 0 && !queue.isEmpty()) {
-                EngineOrder maker = queue.peekFirst();
+                EngineOrder maker = queue.peek();
                 long tradeQuantity = Math.min(taker.getRemainingQuantity(), maker.getRemainingQuantity());
 
                 taker.setFilledQuantity(taker.getFilledQuantity() + tradeQuantity);
@@ -117,7 +112,7 @@ public class OrderBook {
                     .build());
 
                 if (maker.isFilled()) {
-                    queue.pollFirst();
+                    queue.pop();
                     orderIndex.remove(maker.getId());
                 }
             }
@@ -130,8 +125,8 @@ public class OrderBook {
     /**
      * 挂到本方盘口
      */
-    private void addToBook(TreeMap<BigDecimal, Deque<EngineOrder>> book, EngineOrder order) {
-        book.computeIfAbsent(order.getPrice(), k -> new ArrayDeque<>()).addLast(order);
+    private void addToBook(TreeMap<BigDecimal, OrderQueue> book, EngineOrder order) {
+        book.computeIfAbsent(order.getPrice(), k -> new OrderQueue()).push(order);
         orderIndex.put(order.getId(), order);
     }
 
@@ -145,10 +140,10 @@ public class OrderBook {
         if (order == null) {
             return false;
         }
-        TreeMap<BigDecimal, Deque<EngineOrder>> book = order.getSide() == OrderSide.BUY ? bids : asks;
-        Deque<EngineOrder> queue = book.get(order.getPrice());
+        TreeMap<BigDecimal, OrderQueue> book = order.getSide() == OrderSide.BUY ? bids : asks;
+        OrderQueue queue = book.get(order.getPrice());
         if (queue != null) {
-            queue.remove(order);
+            queue.deleteById(orderId);
             if (queue.isEmpty()) {
                 book.remove(order.getPrice());
             }
@@ -184,9 +179,9 @@ public class OrderBook {
      * 取前depth个档位并汇总每档数量（成交量单位：股，对外展示折算为手）
      */
     private List<OrderBookVO.OrderBookItemVO> levels(
-        TreeMap<BigDecimal, Deque<EngineOrder>> book, int depth) {
+        TreeMap<BigDecimal, OrderQueue> book, int depth) {
         List<OrderBookVO.OrderBookItemVO> levels = new ArrayList<>();
-        for (Map.Entry<BigDecimal, Deque<EngineOrder>> entry : book.entrySet()) {
+        for (Map.Entry<BigDecimal, OrderQueue> entry : book.entrySet()) {
             if (levels.size() >= depth) {
                 break;
             }

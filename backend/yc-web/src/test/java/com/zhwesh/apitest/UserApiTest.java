@@ -27,15 +27,33 @@ class UserApiTest extends ApiTestBase {
             "phone", phone, "code", code, "username", "apitester",
             "password", "123456", "name", "接口测试", "idNumber", "110101199001011234"));
         assertThat(response.path("code").asInt()).isEqualTo(1);
-        assertThat(response.path("data").path("token").asString()).isNotBlank();
-        assertThat(response.path("data").path("username").asString()).isEqualTo("apitester");
+        var data = response.path("data");
+        assertThat(data.path("id").asLong()).isPositive();
+        assertThat(data.path("token").asString()).isNotBlank();
+        assertThat(data.path("username").asString()).isEqualTo("apitester");
+        assertThat(data.path("name").asString()).isEqualTo("接口测试");
+        assertThat(data.path("phone").asString()).isEqualTo(phone);
+        assertThat(data.path("createTime").asString()).contains("T");
+        assertThat(api.loginUsername("apitester", "123456").path("code").asInt()).isEqualTo(1);
+
+        String duplicateCode = sendAndReadUserCode(phone);
+        JsonNode duplicate = api.register(ApiClient.body(
+            "phone", phone, "code", duplicateCode, "username", "apitester2",
+            "password", "123456", "name", "接口测试", "idNumber", "110101199001011234"));
+        assertThat(duplicate.path("code").asInt()).isZero();
     }
 
     @Test
     void loginUsername() {
         JsonNode response = api.loginUsername("admin", "123456");
         assertThat(response.path("code").asInt()).isEqualTo(1);
-        assertThat(response.path("data").path("token").asString()).isNotBlank();
+        var data = response.path("data");
+        assertThat(data.path("id").asLong()).isEqualTo(1);
+        assertThat(data.path("username").asString()).isEqualTo("admin");
+        assertThat(data.path("name").asString()).isEqualTo("admin");
+        assertThat(data.path("phone").asString()).isEqualTo(PHONE);
+        assertThat(data.path("createTime").asString()).contains("T");
+        assertThat(data.path("token").asString()).isNotBlank();
 
         JsonNode wrong = api.loginUsername("admin", "bad-password");
         assertThat(wrong.path("code").asInt()).isEqualTo(0);
@@ -46,6 +64,9 @@ class UserApiTest extends ApiTestBase {
         String code = sendAndReadUserCode(PHONE);
         JsonNode response = api.loginPhone(PHONE, code);
         assertThat(response.path("code").asInt()).isEqualTo(1);
+        assertThat(response.path("data").path("username").asString()).isEqualTo("admin");
+        assertThat(response.path("data").path("phone").asString()).isEqualTo(PHONE);
+        assertThat(response.path("data").path("token").asString()).isNotBlank();
 
         JsonNode reused = api.loginPhone(PHONE, code);
         assertThat(reused.path("code").asInt()).isEqualTo(0);
@@ -55,8 +76,12 @@ class UserApiTest extends ApiTestBase {
     void currentUser() {
         JsonNode response = api.currentUser();
         assertThat(response.path("code").asInt()).isEqualTo(1);
-        assertThat(response.path("data").path("username").asString()).isEqualTo("admin");
-        assertThat(response.path("data").path("phone").asString()).isEqualTo(PHONE);
+        var data = response.path("data");
+        assertThat(data.path("id").asLong()).isEqualTo(1);
+        assertThat(data.path("username").asString()).isEqualTo("admin");
+        assertThat(data.path("name").asString()).isEqualTo("admin");
+        assertThat(data.path("phone").asString()).isEqualTo(PHONE);
+        assertThat(data.path("createTime").asString()).contains("T");
     }
 
     @Test
@@ -65,8 +90,10 @@ class UserApiTest extends ApiTestBase {
         JsonNode response = api.updateUser(ApiClient.body(
             "phone", PHONE, "code", code, "image", "https://example.com/avatar.png"));
         assertThat(response.path("code").asInt()).isEqualTo(1);
-        assertThat(api.currentUser().path("data").path("image").asString())
-            .contains("avatar.png");
+        var user = api.currentUser().path("data");
+        assertThat(user.path("image").asString()).isEqualTo("https://example.com/avatar.png");
+        assertThat(user.path("phone").asString()).isEqualTo(PHONE);
+        assertThat(user.path("username").asString()).isEqualTo("admin");
     }
 
     @Test
@@ -82,8 +109,11 @@ class UserApiTest extends ApiTestBase {
     void resetPassword() {
         String code = sendAndReadUserCode(PHONE);
         JsonNode response = api.resetPassword(ApiClient.body(
-            "phone", PHONE, "code", code, "newPassword", "123456"));
+            "phone", PHONE, "code", code, "newPassword", "654321"));
         assertThat(response.path("code").asInt()).isEqualTo(1);
-        assertThat(api.loginUsername("admin", "123456").path("code").asInt()).isEqualTo(1);
+        assertThat(api.loginUsername("admin", "123456").path("code").asInt()).isZero();
+        var login = api.loginUsername("admin", "654321");
+        assertThat(login.path("code").asInt()).isEqualTo(1);
+        assertThat(login.path("data").path("phone").asString()).isEqualTo(PHONE);
     }
 }

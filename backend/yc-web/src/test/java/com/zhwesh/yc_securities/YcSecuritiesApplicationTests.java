@@ -15,18 +15,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 整体测试入口：跑完全部接口功能冒烟 + 吞吐量测量
+ * 整体测试入口：跑完全部接口功能冒烟+吞吐量测量
  * 直接运行本类即可测试所有接口并生成 target/perf-report.csv
  */
 class YcSecuritiesApplicationTests extends ApiTestBase {
 
-    private static final int READ_CONCURRENCY = 8;
-    private static final int READ_WARMUP = 50;
-    private static final int READ_SAMPLES = 500;
-    private static final int WRITE_WARMUP = 2;
-    private static final int WRITE_SAMPLES = 20;
+    private static final int READ_CONCURRENCY = 32;
+    private static final int READ_WARMUP = 100;
+    private static final int READ_SAMPLES = 2000;
+    private static final int WRITE_CONCURRENCY = 8;
+    private static final int WRITE_WARMUP = 10;
+    private static final int WRITE_SAMPLES = 200;
 
     private final AtomicInteger seq = new AtomicInteger();
+    private final Object stateLock = new Object();
 
     @Test
     void runAllApisAndMeasureThroughput() {
@@ -170,17 +172,19 @@ class YcSecuritiesApplicationTests extends ApiTestBase {
         int w = WRITE_WARMUP;
         int n = WRITE_SAMPLES;
 
-        metrics.add(PerfMetrics.measure("POST /user/code", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("POST /user/code", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.sendUserCode(PHONE));
         }));
-        metrics.add(PerfMetrics.measure("POST /user/login/username", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("POST /user/login/username", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.loginUsername("admin", "123456"));
         }));
-        metrics.add(PerfMetrics.measure("POST /user/login/phone", 1, w, n, () -> {
-            String code = sendAndReadUserCode(PHONE);
-            requireSuccess(api.loginPhone(PHONE, code));
+        metrics.add(PerfMetrics.measure("POST /user/login/phone", WRITE_CONCURRENCY, w, n, () -> {
+            synchronized (stateLock) {
+                String code = sendAndReadUserCode(PHONE);
+                requireSuccess(api.loginPhone(PHONE, code));
+            }
         }));
-        metrics.add(PerfMetrics.measure("POST /user/register", 1, 1, 10, () -> {
+        metrics.add(PerfMetrics.measure("POST /user/register", WRITE_CONCURRENCY, w, n, () -> {
             int i = seq.incrementAndGet();
             String phone = "136" + String.format("%08d", i);
             String code = sendAndReadUserCode(phone);
@@ -188,50 +192,58 @@ class YcSecuritiesApplicationTests extends ApiTestBase {
                 "username", "perf" + i, "password", "123456", "name", "压测",
                 "idNumber", "110101199001011234")));
         }));
-        metrics.add(PerfMetrics.measure("PUT /user/update", 1, w, n, () -> {
-            String code = sendAndReadUserCode(PHONE);
-            requireSuccess(api.updateUser(ApiClient.body("phone", PHONE, "code", code)));
+        metrics.add(PerfMetrics.measure("PUT /user/update", WRITE_CONCURRENCY, w, n, () -> {
+            synchronized (stateLock) {
+                String code = sendAndReadUserCode(PHONE);
+                requireSuccess(api.updateUser(ApiClient.body("phone", PHONE, "code", code)));
+            }
         }));
-        metrics.add(PerfMetrics.measure("PUT /user/password/reset", 1, w, n, () -> {
-            String code = sendAndReadUserCode(PHONE);
-            requireSuccess(api.resetPassword(ApiClient.body(
-                "phone", PHONE, "code", code, "newPassword", "123456")));
+        metrics.add(PerfMetrics.measure("PUT /user/password/reset", WRITE_CONCURRENCY, w, n, () -> {
+            synchronized (stateLock) {
+                String code = sendAndReadUserCode(PHONE);
+                requireSuccess(api.resetPassword(ApiClient.body(
+                    "phone", PHONE, "code", code, "newPassword", "123456")));
+            }
         }));
-        metrics.add(PerfMetrics.measure("POST /account/open", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("POST /account/open", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.openAccount("123456"));
         }));
-        metrics.add(PerfMetrics.measure("PUT /account/board/open", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("PUT /account/board/open", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.openBoard(1L, List.of("创业板")));
         }));
-        metrics.add(PerfMetrics.measure("PUT /account/password/update", 1, w, n, () -> {
-            requireSuccess(api.updateTradePassword(1L, "123456", "654321"));
-            requireSuccess(api.updateTradePassword(1L, "654321", "123456"));
+        metrics.add(PerfMetrics.measure("PUT /account/password/update", WRITE_CONCURRENCY, w, n, () -> {
+            synchronized (stateLock) {
+                requireSuccess(api.updateTradePassword(1L, "123456", "654321"));
+                requireSuccess(api.updateTradePassword(1L, "654321", "123456"));
+            }
         }));
-        metrics.add(PerfMetrics.measure("POST /account/password/verify", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("POST /account/password/verify", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.verifyTradePassword(1L, "123456", 24));
         }));
-        metrics.add(PerfMetrics.measure("PUT /account/deposit", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("PUT /account/deposit", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.deposit(1L, new BigDecimal("1")));
         }));
-        metrics.add(PerfMetrics.measure("PUT /account/withdraw", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("PUT /account/withdraw", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.verifyTradePassword(1L, "123456", 24));
             requireSuccess(api.withdraw(1L, new BigDecimal("1")));
         }));
-        metrics.add(PerfMetrics.measure("GET /bank-card/code", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("GET /bank-card/code", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.sendBankCardCode(PHONE));
         }));
-        metrics.add(PerfMetrics.measure("POST /bank-card/verify", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("POST /bank-card/verify", WRITE_CONCURRENCY, w, n, () -> {
             requireSuccess(api.verifyBankCard(CARD_NUMBER, PHONE));
         }));
-        metrics.add(PerfMetrics.measure("POST /bank-card (bind+unbind)", 1, 1, 10, () -> {
-            int i = seq.incrementAndGet();
-            String card = luhnCard("6217" + String.format("%011d", i));
-            String code = sendAndReadCardCode(PHONE);
-            requireSuccess(api.bindBankCard(1L, card, "建设银行", PHONE, code));
-            String unbindCode = sendAndReadCardCode(PHONE);
-            requireSuccess(api.unbindBankCard(1L, card, PHONE, unbindCode));
+        metrics.add(PerfMetrics.measure("POST /bank-card (bind+unbind)", WRITE_CONCURRENCY, w, n, () -> {
+            synchronized (stateLock) {
+                int i = seq.incrementAndGet();
+                String card = luhnCard("6217" + String.format("%011d", i));
+                String code = sendAndReadCardCode(PHONE);
+                requireSuccess(api.bindBankCard(1L, card, "建设银行", PHONE, code));
+                String unbindCode = sendAndReadCardCode(PHONE);
+                requireSuccess(api.unbindBankCard(1L, card, PHONE, unbindCode));
+            }
         }));
-        metrics.add(PerfMetrics.measure("POST /order (create+cancel)", 1, w, n, () -> {
+        metrics.add(PerfMetrics.measure("POST /order (create+cancel)", WRITE_CONCURRENCY, w, n, () -> {
             JsonNode created = api.createOrder(ApiClient.body("accountId", 1, "code", "600000",
                 "type", 1, "price", new BigDecimal("9.50"), "quantity", 100,
                 "orderKey", String.valueOf(600000L + seq.incrementAndGet())));
@@ -248,7 +260,7 @@ class YcSecuritiesApplicationTests extends ApiTestBase {
             pending.add(created.path("data").path("id").asLong());
         }
         AtomicInteger cancelIndex = new AtomicInteger();
-        metrics.add(PerfMetrics.measure("PUT /order/cancel", 1, 0, n, () -> {
+        metrics.add(PerfMetrics.measure("PUT /order/cancel", WRITE_CONCURRENCY, 0, n, () -> {
             Long id = pending.get(cancelIndex.getAndIncrement());
             requireSuccess(api.cancelOrder(1L, id));
         }));
